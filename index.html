@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Anti-Brawl Stars: Boss Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-touch-callout: none;
+            font-family: 'Arial Black', Gadget, sans-serif;
+            letter-spacing: -0.5px;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* Адаптивный фон - Пляж */
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://cdn.pixabay.com/photo/2017/01/20/00/30/maldives-1993704_1280.jpg');
+            background-size: cover;
+            background-position: center bottom;
+            z-index: 1;
+        }
+
+        /* Контейнеры UI */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            padding: 2.5vw;
+        }
+
+        .ui-element { pointer-events: auto; }
+
+        /* Стиль кнопок: Голубой с переливом */
+        .bs-btn {
+            background: linear-gradient(135deg, #4ed9ff 0%, #1579ff 50%, #4ed9ff 100%);
+            background-size: 200% 200%;
+            animation: shine 2s linear infinite;
+            color: #fff;
+            border: 0.3vw solid #000;
+            border-radius: 12px;
+            cursor: pointer;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+            box-shadow: 0 5px #0056cc, 0 8px 10px rgba(0,0,0,0.3);
+            transition: transform 0.05s, box-shadow 0.05s;
+            text-align: center;
+        }
+
+        .bs-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px #0056cc;
+        }
+
+        @keyframes shine {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+
+        /* ГЛАВНОЕ МЕНЮ */
+        #main-menu {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .profile-box { background: rgba(0, 0, 0, 0.7); border: 2px solid #fff; border-radius: 8px; padding: 0.5vw 1.5vw; color: #fff; font-size: 1.2vw; text-shadow: 1px 1px #000; }
+        .trophies { color: #ffcc00; font-size: 1vw; }
+        .currency-box { display: flex; gap: 1vw; }
+        .currency { font-size: 1.2vw; padding: 0.4vw 1.2vw; border-radius: 10px; border: 2px solid #fff; text-shadow: 1px 1px #000; }
+        .gold { background-color: #ffcc00; color: #000; box-shadow: 0 3px #cca300; }
+        .gems { background-color: #00ff66; color: #fff; box-shadow: 0 3px #00cc52; }
+
+        .side-menu { display: flex; position: absolute; flex-direction: column; gap: 1.2vw; top: 25%; }
+        .side-menu.left { left: 2vw; }
+        .side-menu.right { right: 2vw; }
+        .btn-side { width: 10vw; font-size: 1.2vw; padding: 1.2vw 0; border-radius: 10px; }
+
+        .bottom-bar { width: 100%; display: flex; justify-content: flex-end; padding-bottom: 1vw; padding-right: 1vw; }
+        .btn-play { width: 22vw; font-size: 2.2vw; padding: 1.5vw 0; border-radius: 15px; }
+
+        /* ИГРОВОЙ ИНТЕРФЕЙС (Бой) */
+        #game-ui {
+            display: none; /* Скрыт в начале */
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .game-top { display: flex; justify-content: space-between; width: 100%; }
+        
+        /* Шкала здоровья Босса */
+        .boss-hp-container {
+            width: 35vw;
+            background: rgba(0,0,0,0.6);
+            border: 3px solid #000;
+            border-radius: 10px;
+            padding: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .boss-label { color: #fff; font-size: 1vw; text-shadow: 1px 1px #000; }
+        .hp-bar-bg { width: 100%; height: 2vw; background: #330000; border-radius: 6px; overflow: hidden; }
+        #hp-bar-fill { width: 100%; height: 100%; background: linear-gradient(to right, #ff0055, #ff3300); transition: width 0.1s; }
+
+        .score-box {
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #ffcc00;
+            color: #fff;
+            font-size: 1.8vw;
+            padding: 0.5vw 2vw;
+            border-radius: 10px;
+            text-shadow: 2px 2px #000;
+        }
+
+        /* ЭКРАН КОНЦА ИГРЫ */
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 2vw;
+        }
+        .go-title { color: #ff333a; font-size: 5vw; text-shadow: 4px 4px #000; }
+        .go-score { color: #fff; font-size: 2.5vw; text-shadow: 2px 2px #000; }
+        .btn-restart { width: 20vw; font-size: 2vw; padding: 1vw 0; border-radius: 12px; }
+
+        /* Скрытие элементов на вертикальном экране для лучшего ландшафта */
+        @media screen and (orientation: portrait) {
+            .side-menu { display: none; }
+            .bottom-bar { justify-content: center; }
+            .btn-play { width: 50vw; font-size: 5vw; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div id="main-menu" class="ui-layer">
+        <div class="top-bar ui-element">
+            <div class="profile-box">
+                <div>ZELMIR-PRO</div>
+                <div class="trophies">🏆 12,500</div>
+            </div>
+            <div class="currency-box">
+                <div class="currency gold">🪙 4,250</div>
+                <div class="currency gems">💎 89</div>
+            </div>
+        </div>
+
+        <div class="side-menu left ui-element">
+            <button class="bs-btn btn-side">МАГАЗИН</button>
+            <button class="bs-btn btn-side">БОЙЦЫ</button>
+        </div>
+        <div class="side-menu right ui-element">
+            <button class="bs-btn btn-side">КЛУБ</button>
+            <button class="bs-btn btn-side">НАСТРОЙКИ</button>
+        </div>
+
+        <div class="bottom-bar ui-element">
+            <button class="bs-btn btn-play" id="start-game-btn">ИГРАТЬ</button>
+        </div>
+    </div>
+
+    <div id="game-ui" class="ui-layer">
+        <div class="game-top">
+            <div class="boss-hp-container">
+                <div class="boss-label">ЗДОРОВЬЕ БОССА (ПОПУГАЙ)</div>
+                <div class="hp-bar-bg"><div id="hp-bar-fill"></div></div>
+            </div>
+            <div id="score-display" class="score-box">СЧЕТ: 0</div>
+        </div>
+        <div style="color: rgba(255,255,255,0.5); font-size: 1.2vw; text-align:center; margin-bottom: 1vw;">
+            Кликай в любое место экрана, чтобы сделать СУПЕР-УДАР!
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <div class="go-title">БОСС ПОВЕРЖЕН!</div>
+        <div id="final-score" class="go-score">Уничтожено дронов: 0</div>
+        <button class="bs-btn btn-restart ui-element" id="restart-game-btn">В МЕНЮ</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Игровые состояния
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+        let score = 0;
+        let bossHp = 100;
+        let enemies = [];
+        let enemySpawnTimer = 0;
+        let spawnInterval = 1.5; // Секунды между появлением врагов
+
+        // Three.js переменные
+        let scene, camera, renderer, controls, mixer, clock, model;
+        let shockwaveRing, shockwaveData = { active: false, radius: 0, maxRadius: 5, speed: 12 };
+        let targetCameraPos = new THREE.Vector3(-0.3, 0.3, 3.2);
+
+        init();
+        animate();
+
+        function init() {
+            const canvas = document.getElementById('webgl-canvas');
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(-0.3, 0.3, 3.2);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.4;
+
+            // Свет
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+            dirLight.position.set(5, 10, 7.5);
+            scene.add(dirLight);
+
+            // Настройка управления для меню
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.minPolarAngle = Math.PI / 2.1;
+            controls.maxPolarAngle = Math.PI / 2.1;
+
+            // Создаем визуальную волну удара (невидима до клика)
+            const ringGeo = new THREE.RingGeometry(0.1, 1, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff, 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0 
+            });
+            shockwaveRing = new THREE.Mesh(ringGeo, ringMat);
+            shockwaveRing.rotation.x = Math.PI / 2;
+            shockwaveRing.position.y = -0.99;
+            scene.add(shockwaveRing);
+
+            // Загрузка parrot.glb
+            const loader = new GLTFLoader();
+            loader.load('parrot.glb', (gltf) => {
+                model = gltf.scene;
+                model.position.set(0, -1.0, 0); 
+                model.scale.set(1.8, 1.8, 1.8); 
+                scene.add(model);
+
+                if (gltf.animations && gltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(model);
+                    mixer.clipAction(gltf.animations[0]).play();
+                }
+            });
+
+            // Обработчики HTML Кнопок
+            document.getElementById('start-game-btn').addEventListener('click', startGame);
+            document.getElementById('restart-game-btn').addEventListener('click', resetToMenu);
+
+            // Клик по экрану для СУПЕР-УДАРА
+            window.addEventListener('pointerdown', (e) => {
+                if (gameState === 'PLAYING') {
+                    // Проверяем, что кликнули не по UI элементам
+                    if (e.target.tagName !== 'BUTTON') {
+                        triggerBossAttack();
+                    }
+                }
+            });
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // КРАСИВЫЕ ВРАГИ: Создаем светящийся неоновый кристалл
+        function createEnemyMesh() {
+            const group = new THREE.Group();
+            
+            // Тело - острый октаэдр (кристалл)
+            const geo = new THREE.OctahedronGeometry(0.25, 0);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xff0055,
+                emissive: 0xff0033,
+                emissiveIntensity: 1.5,
+                roughness: 0.1,
+                metalness: 0.8
+            });
+            const crystal = new THREE.Mesh(geo, mat);
+            group.add(crystal);
+
+            // Маленькое светящееся кольцо вокруг кристалла
+            const ringGeo = new THREE.TorusGeometry(0.35, 0.03, 8, 24);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            group.add(ring);
+
+            group.position.y = -0.7; // Высота полета над землей
+            return group;
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            score = 0;
+            bossHp = 100;
+            document.getElementById('score-display').innerText = `СЧЕТ: ${score}`;
+            document.getElementById('hp-bar-fill').style.width = '100%';
+
+            // Переключаем интерфейсы
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'flex';
+
+            // Отдаляем камеру наверх (для изометрического обзора боя)
+            controls.enabled = false; // Отключаем ручное вращение
+            targetCameraPos.set(0, 4.5, 6.5);
+        }
+
+        // Логика СУПЕР-УДАРА Попугая
+        function triggerBossAttack() {
+            if (shockwaveData.active) return; // Перезарядка пока идет волна
+
+            // Анимация прыжка попугая в коде (быстро вверх и вниз)
+            if (model) {
+                let t = 0;
+                const jumpInterval = setInterval(() => {
+                    t += 0.15;
+                    model.position.y = -1.0 + Math.sin(t) * 0.6;
+                    if (t >= Math.PI) {
+                        model.position.y = -1.0;
+                        clearInterval(jumpInterval);
+                        
+                        // Когда попугай приземляется, пускаем волну!
+                        shockwaveData.active = true;
+                        shockwaveData.radius = 0.1;
+                        shockwaveRing.visible = true;
+                    }
+                }, 20);
+            }
+        }
+
+        // Спавн врагов по кругу арены
+        function spawnEnemy() {
+            const enemyMesh = createEnemyMesh();
+            
+            // Случайный угол появления
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 8; // Дистанция спавна за экраном
+            
+            enemyMesh.position.x = Math.sin(angle) * radius;
+            enemyMesh.position.z = Math.cos(angle) * radius;
+            
+            scene.add(enemyMesh);
+            
+            enemies.push({
+                mesh: enemyMesh,
+                angle: angle,
+                speed: 1.8 + Math.random() * 1.2, // Разная скорость врагов
+                isDead: false,
+                knockback: new THREE.Vector3()
+            });
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            document.getElementById('game-ui').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'flex';
+            document.getElementById('final-score').innerText = `Уничтожено дронов: ${score}`;
+
+            // Очищаем оставшихся врагов
+            enemies.forEach(e => scene.remove(e.mesh));
+            enemies = [];
+        }
+
+        function resetToMenu() {
+            gameState = 'MENU';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+            
+            // Возвращаем камеру на место в меню
+            targetCameraPos.set(-0.3, 0.3, 3.2);
+            camera.position.copy(targetCameraPos);
+            controls.enabled = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ОСНОВНОЙ ИГРОВОЙ ЦИКЛ
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (mixer) mixer.update(delta);
+
+            // Плавное движение камеры к целевой позиции (для переходов)
+            if (gameState === 'PLAYING') {
+                camera.position.lerp(targetCameraPos, 0.05);
+                camera.lookAt(0, -0.5, 0);
+            } else if (gameState === 'MENU') {
+                controls.update();
+            }
+
+            // РЕЖИМ БОЯ
+            if (gameState === 'PLAYING') {
+                // ТАЙМЕР СПАВНА
+                enemySpawnTimer += delta;
+                if (enemySpawnTimer >= spawnInterval) {
+                    spawnEnemy();
+                    enemySpawnTimer = 0;
+                    // Постепенно ускоряем игру
+                    spawnInterval = Math.max(0.5, spawnInterval - 0.02);
+                }
+
+                // УПРАВЛЕНИЕ УДАРНОЙ ВОЛНОЙ
+                if (shockwaveData.active) {
+                    shockwaveData.radius += shockwaveData.speed * delta;
+                    shockwaveRing.scale.set(shockwaveData.radius, shockwaveData.radius, 1);
+                    shockwaveRing.material.opacity = 1.0 - (shockwaveData.radius / shockwaveData.maxRadius);
+
+                    if (shockwaveData.radius >= shockwaveData.maxRadius) {
+                        shockwaveData.active = false;
+                        shockwaveRing.visible = false;
+                    }
+                }
+
+                // ОБНОВЛЕНИЕ ВРАГОВ
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    
+                    // Эффектное вращение самого кристалла вокруг своей оси
+                    enemy.mesh.children[0].rotation.y += 2 * delta;
+                    enemy.mesh.children[0].rotation.x += 1 * delta;
+
+                    if (enemy.isDead) {
+                        // Анимация полета трупа при попадании волны
+                        enemy.mesh.position.addScaledVector(enemy.knockback, delta);
+                        enemy.mesh.position.y += 4 * delta; // улетает вверх
+                        enemy.mesh.scale.subScalar(1.5 * delta); // уменьшается
+
+                        if (enemy.mesh.scale.x <= 0.1) {
+                            scene.remove(enemy.mesh);
+                            enemies.splice(i, 1);
+                        }
+                        continue;
+                    }
+
+                    // Движение живого врага к центру (к попугаю)
+                    const dir = new THREE.Vector3(0, enemy.mesh.position.y, 0).sub(enemy.mesh.position);
+                    const distToCenter = dir.length();
+                    dir.normalize();
+                    enemy.mesh.position.addScaledVector(dir, enemy.speed * delta);
+
+                    // ПРОВЕРКА НА СТОЛКНОВЕНИЕ С УДАРНОЙ ВОЛНОЙ
+                    if (shockwaveData.active) {
+                        // Если враг близко к текущему радиусу расширяющейся волны
+                        if (Math.abs(distToCenter - shockwaveData.radius) < 0.4 && distToCenter < shockwaveData.maxRadius) {
+                            enemy.isDead = true;
+                            score++;
+                            document.getElementById('score-display').innerText = `СЧЕТ: ${score}`;
+                            
+                            // Задаем вектор отлета врага назад от центра
+                            enemy.knockback.copy(enemy.mesh.position).normalize().multiplyScalar(15);
+                        }
+                    }
+
+                    // ВРАГ ДОБЕЖАЛ ДО БОССА
+                    if (distToCenter < 0.6) {
+                        bossHp -= 10;
+                        document.getElementById('hp-bar-fill').style.width = `${bossHp}%`;
+                        
+                        // Удаляем врага со взрывом (просто убираем со сцены)
+                        scene.remove(enemy.mesh);
+                        enemies.splice(i, 1);
+
+                        if (bossHp <= 0) {
+                            endGame();
+                        }
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
