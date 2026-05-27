@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Anti-Brawl Stars: Joystick Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-touch-callout: none;
+            font-family: 'Arial Black', Gadget, sans-serif;
+            letter-spacing: -0.5px;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://cdn.pixabay.com/photo/2017/01/20/00/30/maldives-1993704_1280.jpg');
+            background-size: cover;
+            background-position: center bottom;
+            z-index: 1;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            padding: 2.5vw;
+        }
+
+        .ui-element { pointer-events: auto; }
+
+        .bs-btn {
+            background: linear-gradient(135deg, #4ed9ff 0%, #1579ff 50%, #4ed9ff 100%);
+            background-size: 200% 200%;
+            animation: shine 2s linear infinite;
+            color: #fff;
+            border: 0.3vw solid #000;
+            border-radius: 12px;
+            cursor: pointer;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+            box-shadow: 0 5px #0056cc, 0 8px 10px rgba(0,0,0,0.3);
+            transition: transform 0.05s, box-shadow 0.05s;
+            text-align: center;
+        }
+
+        .bs-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px #0056cc;
+        }
+
+        @keyframes shine {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+
+        /* ГЛАВНОЕ МЕНЮ */
+        #main-menu {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .profile-box { background: rgba(0, 0, 0, 0.7); border: 2px solid #fff; border-radius: 8px; padding: 0.5vw 1.5vw; color: #fff; font-size: 1.2vw; text-shadow: 1px 1px #000; }
+        .trophies { color: #ffcc00; font-size: 1vw; }
+        .currency-box { display: flex; gap: 1vw; }
+        .currency { font-size: 1.2vw; padding: 0.4vw 1.2vw; border-radius: 10px; border: 2px solid #fff; text-shadow: 1px 1px #000; }
+        .gold { background-color: #ffcc00; color: #000; box-shadow: 0 3px #cca300; }
+        .gems { background-color: #00ff66; color: #fff; box-shadow: 0 3px #00cc52; }
+
+        .side-menu { display: flex; position: absolute; flex-direction: column; gap: 1.2vw; top: 25%; }
+        .side-menu.left { left: 2vw; }
+        .side-menu.right { right: 2vw; }
+        .btn-side { width: 10vw; font-size: 1.2vw; padding: 1.2vw 0; border-radius: 10px; }
+
+        .bottom-bar { width: 100%; display: flex; justify-content: flex-end; padding-bottom: 1vw; padding-right: 1vw; }
+        .btn-play { width: 22vw; font-size: 2.2vw; padding: 1.5vw 0; border-radius: 15px; }
+
+        /* ИГРОВОЙ ИНТЕРФЕЙС */
+        #game-ui {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .game-top { display: flex; justify-content: space-between; width: 100%; }
+        .boss-hp-container { width: 35vw; background: rgba(0,0,0,0.6); border: 3px solid #000; border-radius: 10px; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+        .boss-label { color: #fff; font-size: 1vw; text-shadow: 1px 1px #000; }
+        .hp-bar-bg { width: 100%; height: 2vw; background: #330000; border-radius: 6px; overflow: hidden; }
+        #hp-bar-fill { width: 100%; height: 100%; background: linear-gradient(to right, #ff0055, #ff3300); transition: width 0.1s; }
+        .score-box { background: rgba(0,0,0,0.7); border: 2px solid #ffcc00; color: #fff; font-size: 1.8vw; padding: 0.5vw 2vw; border-radius: 10px; text-shadow: 2px 2px #000; }
+
+        /* МОБИЛЬНЫЙ ДЖОЙСТИК (Brawl Stars Style) */
+        #joystick-zone {
+            position: absolute;
+            bottom: 10vh;
+            left: 8vw;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 4px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: none; /* Показывается только в игре */
+            justify-content: center;
+            align-items: center;
+            z-index: 15;
+        }
+        #joystick-handle {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #1579ff, #0044aa);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        /* GAME OVER */
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 2vw;
+        }
+        .go-title { color: #ff333a; font-size: 5vw; text-shadow: 4px 4px #000; }
+        .go-score { color: #fff; font-size: 2.5vw; text-shadow: 2px 2px #000; }
+        .btn-restart { width: 20vw; font-size: 2vw; padding: 1vw 0; border-radius: 12px; }
+
+        @media screen and (orientation: portrait) {
+            .side-menu { display: none; }
+            .bottom-bar { justify-content: center; }
+            .btn-play { width: 50vw; font-size: 5vw; }
+            #joystick-zone { bottom: 5vh; left: 15vw; width: 100px; height: 100px; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div id="joystick-zone" class="ui-element">
+        <div id="joystick-handle"></div>
+    </div>
+
+    <div id="main-menu" class="ui-layer">
+        <div class="top-bar ui-element">
+            <div class="profile-box">
+                <div>ZELMIR-PRO</div>
+                <div class="trophies">🏆 12,500</div>
+            </div>
+            <div class="currency-box">
+                <div class="currency gold">🪙 4,250</div>
+                <div class="currency gems">💎 89</div>
+            </div>
+        </div>
+
+        <div class="side-menu left ui-element">
+            <button class="bs-btn btn-side">МАГАЗИН</button>
+            <button class="bs-btn btn-side">БОЙЦЫ</button>
+        </div>
+        <div class="side-menu right ui-element">
+            <button class="bs-btn btn-side">КЛУБ</button>
+            <button class="bs-btn btn-side">НАСТРОЙКИ</button>
+        </div>
+
+        <div class="bottom-bar ui-element">
+            <button class="bs-btn btn-play" id="start-game-btn">ИГРАТЬ</button>
+        </div>
+    </div>
+
+    <div id="game-ui" class="ui-layer">
+        <div class="game-top">
+            <div class="boss-hp-container">
+                <div class="boss-label">ЗДОРОВЬЕ БОССА (ПОПУГАЙ)</div>
+                <div class="hp-bar-bg"><div id="hp-bar-fill"></div></div>
+            </div>
+            <div id="score-display" class="score-box">СЧЕТ: 0</div>
+        </div>
+        <div style="color: rgba(255,255,255,0.6); font-size: 1.2vw; text-align:center; margin-bottom: 1vw;">
+            Тяни джойстик для прицеливания. Отпусти, чтобы прыгнуть и разбить роботов!
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <div class="go-title">БОСС ПОВЕРЖЕН!</div>
+        <div id="final-score" class="go-score">Уничтожено роботов: 0</div>
+        <button class="bs-btn btn-restart ui-element" id="restart-game-btn">В МЕНЮ</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Состояния
+        let gameState = 'MENU';
+        let score = 0;
+        let bossHp = 100;
+        let enemies = [];
+        let enemySpawnTimer = 0;
+        let spawnInterval = 1.6;
+
+        // Механика движения Босса
+        let bossPosition = new THREE.Vector3(0, -1.0, 0);
+        let isDashing = false;
+        let dashTarget = new THREE.Vector3();
+        let dashDirection = new THREE.Vector3();
+        const DASH_DISTANCE = 3.5; // Дальность прыжка
+        const DASH_SPEED = 14;
+
+        // Эффекты
+        let shakeTime = 0;
+        let shakeIntensity = 0;
+        let originCameraPos = new THREE.Vector3(0, 4.5, 6.5);
+
+        // Джойстик переменные
+        let joystickActive = false;
+        let joystickStart = { x: 0, y: 0 };
+        let joystickDir = { x: 0, y: 0 }; // Направление вектора от 0 до 1
+
+        // Three.js
+        let scene, camera, renderer, controls, mixer, robotGeometry, clock, model;
+        let shockwaveRing, laserArrow, shockwaveData = { active: false, radius: 0, maxRadius: 3.5, speed: 12 };
+        let targetCameraPos = new THREE.Vector3(-0.3, 0.3, 3.2);
+
+        init();
+        animate();
+
+        function init() {
+            const canvas = document.getElementById('webgl-canvas');
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(-0.3, 0.3, 3.2);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.4;
+
+            // СВЕТ (МАКСИМАЛЬНО ЯРКИЙ, чтобы нос попугая НЕ был черным)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 2.8);
+            dirLight.position.set(5, 12, 7.5);
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0xffffff, 1.0); // Дополнительный свет спереди-снизу
+            fillLight.position.set(0, -2, 5);
+            scene.add(fillLight);
+
+            // Меню-контроль
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.minPolarAngle = Math.PI / 2.1;
+            controls.maxPolarAngle = Math.PI / 2.1;
+
+            // Волна удара
+            const ringGeo = new THREE.RingGeometry(0.1, 1, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+            shockwaveRing = new THREE.Mesh(ringGeo, ringMat);
+            shockwaveRing.rotation.x = Math.PI / 2;
+            shockwaveRing.position.y = -0.99;
+            scene.add(shockwaveRing);
+
+            // Лазерный указатель прицела (Стрелка)
+            const arrowGeo = new THREE.ConeGeometry(0.2, 1, 4);
+            const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0 });
+            laserArrow = new THREE.Mesh(arrowGeo, arrowMat);
+            laserArrow.rotation.x = Math.PI / 2;
+            laserArrow.position.y = -0.95;
+            scene.add(laserArrow);
+
+            // Загрузка главного героя (Попугай)
+            const loader = new GLTFLoader();
+            loader.load('parrot.glb', (gltf) => {
+                model = gltf.scene;
+                model.position.copy(bossPosition); 
+                model.scale.set(1.8, 1.8, 1.8); 
+                scene.add(model);
+
+                if (gltf.animations && gltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(model);
+                    mixer.clipAction(gltf.animations[0]).play();
+                }
+            });
+
+            // Загрузка твоей новой модели робота (robot.glb)
+            loader.load('robot.glb', (gltf) => {
+                // Сохраняем геометрию/сцену робота для дальнейшего клонирования при спавне
+                robotGeometry = gltf.scene;
+                robotGeometry.scale.set(1.2, 1.2, 1.2); // Масштабируем робота до адекватных размеров
+            }, undefined, (err) => {
+                console.warn("Файл robot.glb пока не найден, роботы соберутся из резервных кубов", err);
+            });
+
+            // HTML кнопки
+            document.getElementById('start-game-btn').addEventListener('click', startGame);
+            document.getElementById('restart-game-btn').addEventListener('click', resetToMenu);
+
+            setupJoystick();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // ЛОГИКА СЕНСОРНОГО ДЖОЙСТИКА
+        function setupJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const handle = document.getElementById('joystick-handle');
+            const maxRadius = 45; // Максимальный увод пальца
+
+            window.addEventListener('pointerdown', (e) => {
+                if (gameState !== 'PLAYING' || isDashing) return;
+                
+                // Проверяем клик в левой части экрана (зона джойстика)
+                if (e.clientX < window.innerWidth / 2 && e.clientY > window.innerHeight / 3) {
+                    joystickActive = true;
+                    joystickStart = { x: e.clientX, y: e.clientY };
+                    
+                    // Центрируем джойстик в точке нажатия
+                    zone.style.display = 'flex';
+                    zone.style.left = `${e.clientX - 60}px`;
+                    zone.style.top = `${e.clientY - 60}px`;
+                    handle.style.transform = `translate(0px, 0px)`;
+                }
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!joystickActive) return;
+
+                let dx = e.clientX - joystickStart.x;
+                let dy = e.clientY - joystickStart.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                    dist = maxRadius;
+                }
+
+                handle.style.transform = `translate(${dx}px, ${dy}px)`;
+
+                // Переводим в 3D координаты (Инвертируем Y, так как в 3D Z направлен вниз экрана)
+                joystickDir.x = dx / maxRadius;
+                joystickDir.y = -dy / maxRadius;
+
+                // Поворачиваем попугая в сторону прицеливания
+                if (model) {
+                    const angle = Math.atan2(joystickDir.x, joystickDir.y);
+                    model.rotation.y = angle;
+                }
+
+                // Рисуем лазерную стрелку-указатель
+                laserArrow.material.opacity = 0.7;
+                const angleArrow = Math.atan2(joystickDir.x, joystickDir.y);
+                laserArrow.rotation.z = -angleArrow; // Направление
+                
+                // Длина стрелки зависит от силы натяжения джойстика
+                const arrowLength = (dist / maxRadius) * DASH_DISTANCE;
+                laserArrow.scale.set(1, arrowLength, 1);
+                
+                // Сдвигаем стрелку вперед от попугая
+                laserArrow.position.x = bossPosition.x + joystickDir.x * (arrowLength / 2);
+                laserArrow.position.z = bossPosition.z - joystickDir.y * (arrowLength / 2);
+            });
+
+            window.addEventListener('pointerup', () => {
+                if (!joystickActive) return;
+                joystickActive = false;
+                zone.style.display = 'none';
+                laserArrow.material.opacity = 0;
+
+                // Запускаем прыжок, если джойстик был сдвинут хоть немного
+                let dragDist = Math.sqrt(joystickDir.x * joystickDir.x + joystickDir.y * joystickDir.y);
+                if (dragDist > 0.2) {
+                    triggerJoystickDash();
+                }
+            });
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            score = 0;
+            bossHp = 100;
+            bossPosition.set(0, -1.0, 0);
+            if(model) model.position.copy(bossPosition);
+            document.getElementById('score-display').innerText = `СЧЕТ: ${score}`;
+            document.getElementById('hp-bar-fill').style.width = '100%';
+
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'flex';
+
+            controls.enabled = false;
+            targetCameraPos.copy(originCameraPos);
+        }
+
+        // РЕЗКИЙ НАПРАВЛЕННЫЙ РЫВОК (Прыжок в сторону)
+        function triggerJoystickDash() {
+            if (isDashing) return;
+            isDashing = true;
+
+            // Вычисляем точку приземления
+            dashDirection.set(joystickDir.x, 0, -joystickDir.y).normalize();
+            dashTarget.copy(bossPosition).addScaledVector(dashDirection, DASH_DISTANCE);
+
+            // Ограничиваем арену боя круглым радиусом пляжа (чтобы попугай не улетел в море)
+            if (dashTarget.length() > 6) {
+                dashTarget.setLength(6);
+            }
+
+            let t = 0;
+            let startPos = bossPosition.clone();
+
+            const dashInterval = setInterval(() => {
+                t += 0.08;
+                
+                // Линейное смещение к цели + синусоидальный прыжок вверх
+                bossPosition.lerpVectors(startPos, dashTarget, Math.min(t, 1));
+                if (model) {
+                    model.position.copy(bossPosition);
+                    model.position.y = -1.0 + Math.sin(t * Math.PI) * 1.2; // Высота дуги прыжка
+                }
+
+                if (t >= 1) {
+                    clearInterval(dashInterval);
+                    bossPosition.copy(dashTarget);
+                    if(model) model.position.copy(bossPosition);
+                    isDashing = false;
+
+                    // ПРИЗЕМЛЕНИЕ: Волна + Тряска экрана!
+                    shockwaveData.active = true;
+                    shockwaveData.radius = 0.1;
+                    shockwaveRing.position.set(bossPosition.x, -0.99, bossPosition.z);
+                    shockwaveRing.visible = true;
+
+                    // Активируем сочную тряску
+                    shakeTime = 0.25; // Длительность тряски в сек
+                    shakeIntensity = 0.15; // Мощность тряски
+                }
+            }, 16);
+        }
+
+        // Спавн роботов
+        function spawnEnemy() {
+            let enemyMesh;
+            
+            if (robotGeometry) {
+                // Если файл загрузился — клонируем полноценного робота robot.glb
+                enemyMesh = robotGeometry.clone();
+            } else {
+                // Резервный куб, если робот еще не залит в гитхаб
+                const geo = new THREE.BoxGeometry(0.5, 0.6, 0.5);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0000 });
+                enemyMesh = new THREE.Mesh(geo, mat);
+            }
+
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 9;
+            enemyMesh.position.set(Math.sin(angle) * radius, -0.7, Math.cos(angle) * radius);
+            scene.add(enemyMesh);
+
+            enemies.push({
+                mesh: enemyMesh,
+                speed: 1.5 + Math.random() * 1.0,
+                isDead: false,
+                knockback: new THREE.Vector3()
+            });
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            document.getElementById('game-ui').style.display = 'none';
+            document.getElementById('joystick-zone').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'flex';
+            document.getElementById('final-score').innerText = `Уничтожено роботов: ${score}`;
+
+            enemies.forEach(e => scene.remove(e.mesh));
+            enemies = [];
+        }
+
+        function resetToMenu() {
+            gameState = 'MENU';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+            
+            targetCameraPos.set(-0.3, 0.3, 3.2);
+            camera.position.copy(targetCameraPos);
+            controls.enabled = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ИГРОВОЙ ЦИКЛ С ТРЯСКОЙ КАМЕРЫ И ЛОГИКОЙ БОЯ
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (mixer) mixer.update(delta);
+
+            if (gameState === 'PLAYING') {
+                // Камера следит за центром поля боя, но с эффектом тряски
+                let currentCamPos = originCameraPos.clone();
+
+                if (shakeTime > 0) {
+                    shakeTime -= delta;
+                    // Генерируем случайное смещение камеры для эффекта удара
+                    currentCamPos.x += (Math.random() - 0.5) * shakeIntensity;
+                    currentCamPos.y += (Math.random() - 0.5) * shakeIntensity;
+                    currentCamPos.z += (Math.random() - 0.5) * shakeIntensity;
+                }
+                camera.position.lerp(currentCamPos, 0.1);
+                camera.lookAt(bossPosition.x, -0.5, bossPosition.z);
+
+                // Спавн роботов
+                enemySpawnTimer += delta;
+                if (enemySpawnTimer >= spawnInterval) {
+                    spawnEnemy();
+                    enemySpawnTimer = 0;
+                    spawnInterval = Math.max(0.6, spawnInterval - 0.01);
+                }
+
+                // Анимация ударной волны
+                if (shockwaveData.active) {
+                    shockwaveData.radius += shockwaveData.speed * delta;
+                    shockwaveRing.scale.set(shockwaveData.radius, shockwaveData.radius, 1);
+                    shockwaveRing.material.opacity = 1.0 - (shockwaveData.radius / shockwaveData.maxRadius);
+
+                    if (shockwaveData.radius >= shockwaveData.maxRadius) {
+                        shockwaveData.active = false;
+                        shockwaveRing.visible = false;
+                    }
+                }
+
+                // Обсчет роботов
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+
+                    if (enemy.isDead) {
+                        enemy.mesh.position.addScaledVector(enemy.knockback, delta);
+                        enemy.mesh.position.y += 5 * delta;
+                        enemy.mesh.scale.subScalar(1.6 * delta);
+
+                        if (enemy.mesh.scale.x <= 0.1) {
+                            scene.remove(enemy.mesh);
+                            enemies.splice(i, 1);
+                        }
+                        continue;
+                    }
+
+                    // Робот бежит строго к ТЕКУЩЕЙ позиции попугая
+                    const dir = new THREE.Vector3().copy(bossPosition).sub(enemy.mesh.position);
+                    dir.y = 0; // Движение по плоскости пляжа
+                    const distToBoss = dir.length();
+                    dir.normalize();
+
+                    enemy.mesh.position.addScaledVector(dir, enemy.speed * delta);
+                    
+                    // Поворачиваем робота лицом к попугаю
+                    enemy.mesh.lookAt(bossPosition.x, enemy.mesh.position.y, bossPosition.z);
+
+                    // Проверка попадания под ударную волну (в точке приземления)
+                    if (shockwaveData.active) {
+                        const distToShockwaveCenter = enemy.mesh.position.distanceTo(shockwaveRing.position);
+                        if (Math.abs(distToShockwaveCenter - shockwaveData.radius) < 0.5 && distToShockwaveCenter < shockwaveData.maxRadius) {
+                            enemy.isDead = true;
+                            score++;
+                            document.getElementById('score-display').innerText = `СЧЕТ: ${score}`;
+                            
+                            // Вектор отлета робота назад от центра взрыва
+                            enemy.knockback.copy(enemy.mesh.position).sub(shockwaveRing.position).normalize().multiplyScalar(16);
+                        }
+                    }
+
+                    // Нанесение урона попугаю (если робот вплотную)
+                    if (distToBoss < 0.7 && !isDashing) {
+                        bossHp -= 15;
+                        document.getElementById('hp-bar-fill').style.width = `${bossHp}%`;
+                        
+                        scene.remove(enemy.mesh);
+                        enemies.splice(i, 1);
+
+                        if (bossHp <= 0) {
+                            endGame();
+                        }
+                    }
+                }
+            } else if (gameState === 'MENU') {
+                controls.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
