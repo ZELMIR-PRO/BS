@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Anti-Brawl Stars: Island Defense</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-touch-callout: none;
+            font-family: 'Arial Black', Gadget, sans-serif;
+            letter-spacing: -0.5px;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://cdn.pixabay.com/photo/2017/01/20/00/30/maldives-1993704_1280.jpg');
+            background-size: cover;
+            background-position: center bottom;
+            z-index: 1;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            padding: 2.5vw;
+        }
+
+        .ui-element { pointer-events: auto; }
+
+        .bs-btn {
+            background: linear-gradient(135deg, #4ed9ff 0%, #1579ff 50%, #4ed9ff 100%);
+            background-size: 200% 200%;
+            animation: shine 2s linear infinite;
+            color: #fff;
+            border: 0.3vw solid #000;
+            border-radius: 12px;
+            cursor: pointer;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+            box-shadow: 0 5px #0056cc, 0 8px 10px rgba(0,0,0,0.3);
+            transition: transform 0.05s, box-shadow 0.05s;
+            text-align: center;
+        }
+
+        .bs-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px #0056cc;
+        }
+
+        @keyframes shine {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+
+        /* ГЛАВНОЕ МЕНЮ */
+        #main-menu {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .profile-box { background: rgba(0, 0, 0, 0.7); border: 2px solid #fff; border-radius: 8px; padding: 0.5vw 1.5vw; color: #fff; font-size: 1.2vw; text-shadow: 1px 1px #000; }
+        .trophies { color: #ffcc00; font-size: 1vw; }
+        .currency-box { display: flex; gap: 1vw; }
+        .currency { font-size: 1.2vw; padding: 0.4vw 1.2vw; border-radius: 10px; border: 2px solid #fff; text-shadow: 1px 1px #000; }
+        .gold { background-color: #ffcc00; color: #000; box-shadow: 0 3px #cca300; }
+        .gems { background-color: #00ff66; color: #fff; box-shadow: 0 3px #00cc52; }
+
+        .side-menu { display: flex; position: absolute; flex-direction: column; gap: 1.2vw; top: 25%; }
+        .side-menu.left { left: 2vw; }
+        .side-menu.right { right: 2vw; }
+        .btn-side { width: 10vw; font-size: 1.2vw; padding: 1.2vw 0; border-radius: 10px; }
+
+        .bottom-bar { width: 100%; display: flex; justify-content: flex-end; padding-bottom: 1vw; padding-right: 1vw; }
+        .btn-play { width: 22vw; font-size: 2.2vw; padding: 1.5vw 0; border-radius: 15px; }
+
+        /* ИГРОВОЙ ИНТЕРФЕЙС */
+        #game-ui {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .game-top { display: flex; justify-content: space-between; width: 100%; }
+        .boss-hp-container { width: 35vw; background: rgba(0,0,0,0.6); border: 3px solid #000; border-radius: 10px; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+        .boss-label { color: #fff; font-size: 1vw; text-shadow: 1px 1px #000; }
+        .hp-bar-bg { width: 100%; height: 2vw; background: #330000; border-radius: 6px; overflow: hidden; }
+        #hp-bar-fill { width: 100%; height: 100%; background: linear-gradient(to right, #33ff33, #00ff66); transition: width 0.1s; }
+        .score-box { background: rgba(0,0,0,0.7); border: 2px solid #ffcc00; color: #fff; font-size: 1.8vw; padding: 0.5vw 2vw; border-radius: 10px; text-shadow: 2px 2px #000; }
+
+        /* GAME OVER */
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 2vw;
+        }
+        .go-title { color: #ff333a; font-size: 5vw; text-shadow: 4px 4px #000; }
+        .go-score { color: #fff; font-size: 2.5vw; text-shadow: 2px 2px #000; }
+        .btn-restart { width: 20vw; font-size: 2vw; padding: 1vw 0; border-radius: 12px; }
+
+        @media screen and (orientation: portrait) {
+            .side-menu { display: none; }
+            .bottom-bar { justify-content: center; }
+            .btn-play { width: 50vw; font-size: 5vw; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div id="main-menu" class="ui-layer">
+        <div class="top-bar ui-element">
+            <div class="profile-box">
+                <div>ZELMIR-PRO</div>
+                <div class="trophies">🏆 12,500</div>
+            </div>
+            <div class="currency-box">
+                <div class="currency gold">🪙 4,250</div>
+                <div class="currency gems">💎 89</div>
+            </div>
+        </div>
+
+        <div class="side-menu left ui-element">
+            <button class="bs-btn btn-side">МАГАЗИН</button>
+            <button class="bs-btn btn-side">БОЙЦЫ</button>
+        </div>
+        <div class="side-menu right ui-element">
+            <button class="bs-btn btn-side">КЛУБ</button>
+            <button class="bs-btn btn-side">НАСТРОЙКИ</button>
+        </div>
+
+        <div class="bottom-bar ui-element">
+            <button class="bs-btn btn-play" id="start-game-btn">ИГРАТЬ</button>
+        </div>
+    </div>
+
+    <div id="game-ui" class="ui-layer">
+        <div class="game-top">
+            <div class="boss-hp-container">
+                <div class="boss-label">ПРОЧНОСТЬ ОСТРОВА</div>
+                <div class="hp-bar-bg"><div id="hp-bar-fill"></div></div>
+            </div>
+            <div id="score-display" class="score-box">СЧЕТ: 0</div>
+        </div>
+        <div style="color: rgba(255,255,255,0.8); font-size: 1.5vw; text-align:center; margin-bottom: 1vw; text-shadow: 2px 2px #000;">
+            💥 Тапай по экрану в роботов, чтобы расстреливать их плазмой!
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <div class="go-title">ОСТРОВ ЗАХВАЧЕН!</div>
+        <div id="final-score" class="go-score">Уничтожено роботов: 0</div>
+        <button class="bs-btn btn-restart ui-element" id="restart-game-btn">В МЕНЮ</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Игровая логика
+        let gameState = 'MENU';
+        let score = 0;
+        let islandHp = 100;
+        let enemies = [];
+        let projectiles = [];
+        let explosions = [];
+        let enemySpawnTimer = 0;
+        let spawnInterval = 1.4;
+
+        // Позиция центра обороны
+        const centerPosition = new THREE.Vector3(0, -1.0, 0);
+
+        // Three.js компоненты
+        let scene, camera, renderer, controls, mixer, robotGeometry, clock, model;
+        let raycaster, planeIntersection;
+
+        init();
+        animate();
+
+        function init() {
+            const canvas = document.getElementById('webgl-canvas');
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+            raycaster = new THREE.Raycaster();
+
+            // КАМЕРА: Фиксированный, красивый изометрический ракурс сверху-сбоку
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 7.5, 9.0);
+            camera.lookAt(0, -0.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.3;
+
+            // ИДЕАЛЬНЫЙ СВЕТ: Ровный купольный полусферический свет + яркий фронтальный прожектор
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3.0);
+            hemiLight.position.set(0, 20, 0);
+            scene.add(hemiLight);
+
+            const frontLight = new THREE.DirectionalLight(0xffffff, 2.0);
+            frontLight.position.set(0, 8, 12);
+            scene.add(frontLight);
+
+            // Ограничения для OrbitControls в меню
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.enableZoom = false;
+            controls.enablePan = false;
+            controls.minPolarAngle = Math.PI / 2.3;
+            controls.maxPolarAngle = Math.PI / 2.3;
+
+            // Плоскость для просчета кликов по земле
+            const planeGeo = new THREE.PlaneGeometry(30, 30);
+            const planeMat = new THREE.MeshBasicMaterial({ visible: false });
+            planeIntersection = new THREE.Mesh(planeGeo, planeMat);
+            planeIntersection.rotation.x = -Math.PI / 2;
+            planeIntersection.position.y = -1.0;
+            scene.add(planeIntersection);
+
+            // Загрузка главного героя (Попугай)
+            const loader = new GLTFLoader();
+            loader.load('parrot.glb', (gltf) => {
+                model = gltf.scene;
+                model.position.copy(centerPosition); 
+                model.scale.set(1.9, 1.9, 1.9); 
+                scene.add(model);
+
+                if (gltf.animations && gltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(model);
+                    mixer.clipAction(gltf.animations[0]).play();
+                }
+            });
+
+            // Загрузка твоей модели робота
+            loader.load('robot.glb', (gltf) => {
+                robotGeometry = gltf.scene;
+                robotGeometry.scale.set(1.2, 1.2, 1.2);
+            }, undefined, (err) => {
+                console.warn("Файл robot.glb не найден, используем кубы по умолчанию", err);
+            });
+
+            // Слушатели событий клика/тапа для атаки
+            window.addEventListener('pointerdown', onScreenTouch);
+
+            document.getElementById('start-game-btn').addEventListener('click', startGame);
+            document.getElementById('restart-game-btn').addEventListener('click', resetToMenu);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // ЛОГИКА СТРЕЛЬБЫ ПО КЛИКУ
+        function onScreenTouch(e) {
+            if (gameState !== 'PLAYING') return;
+
+            // Игнорируем клики в самой верхней панели UI
+            if (e.clientY < window.innerHeight * 0.12) return;
+
+            // Переводим координаты мыши/тапа в 3D пространство
+            const mouse = new THREE.Vector2(
+                (e.clientX / window.innerWidth) * 2 - 1,
+                -(e.clientY / window.innerHeight) * 2 + 1
+            );
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(planeIntersection);
+
+            if (intersects.length > 0) {
+                const targetPoint = intersects[0].point;
+
+                // 1. Поворачиваем попугая точно в сторону клика
+                if (model) {
+                    const angle = Math.atan2(targetPoint.x - centerPosition.x, targetPoint.z - centerPosition.z);
+                    model.rotation.y = angle;
+                }
+
+                // 2. Создаем и запускаем неоновый плазменный снаряд
+                createProjectile(targetPoint);
+            }
+        }
+
+        function createProjectile(targetPos) {
+            // Визуал снаряда: яркая светящаяся сфера
+            const geo = new THREE.SphereGeometry(0.18, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const mesh = new THREE.Mesh(geo, mat);
+            
+            // Снаряд вылетает из центра (от попугая)
+            mesh.position.copy(centerPosition).y = -0.5; 
+            scene.add(mesh);
+
+            const dir = new THREE.Vector3().copy(targetPos).sub(mesh.position);
+            dir.y = 0; // Летит параллельно земле
+            dir.normalize();
+
+            projectiles.push({
+                mesh: mesh,
+                dir: dir,
+                target: targetPos.clone(),
+                speed: 15.0
+            });
+        }
+
+        function createExplosionRing(pos) {
+            const geo = new THREE.RingGeometry(0.1, 1.2, 24);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xff00cc, side: THREE.DoubleSide, transparent: true, opacity: 1.0 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.copy(pos).y = -0.98;
+            scene.add(mesh);
+
+            explosions.push({
+                mesh: mesh,
+                radius: 0.1,
+                maxRadius: 1.8,
+                speed: 8.0
+            });
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            score = 0;
+            islandHp = 100;
+            
+            if(model) {
+                model.position.copy(centerPosition);
+                model.rotation.set(0, 0, 0);
+            }
+            
+            document.getElementById('score-display').innerText = `СЧЕТ: ${score}`;
+            document.getElementById('hp-bar-fill').style.width = '100%';
+
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'flex';
+            
+            // Фиксируем камеру в боевом положении
+            controls.enabled = false;
+            camera.position.set(0, 7.5, 9.0);
+            camera.lookAt(0, -0.5, 0);
+        }
+
+        function spawnEnemy() {
+            let enemyMesh;
+            
+            if (robotGeometry) {
+                enemyMesh = robotGeometry.clone();
+            } else {
+                const geo = new THREE.BoxGeometry(0.5, 0.7, 0.5);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xff3300 });
+                enemyMesh = new THREE.Mesh(geo, mat);
+            }
+
+            // Роботы появляются случайно по кругу на дальних подступах к острову
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 11;
+            enemyMesh.position.set(Math.sin(angle) * radius, -0.7, Math.cos(angle) * radius);
+            scene.add(enemyMesh);
+
+            enemies.push({
+                mesh: enemyMesh,
+                speed: 1.2 + Math.random() * 0.8,
+                isDead: false,
+                knockback: new THREE.Vector3()
+            });
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            document.getElementById('game-ui').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'flex';
+            document.getElementById('final-score').innerText = `Уничтожено роботов: ${score}`;
+
+            // Очистка сцены от остатков врагов и пуль
+            enemies.forEach(e => scene.remove(e.mesh));
+            projectiles.forEach(p => scene.remove(p.mesh));
+            explosions.forEach(ex => scene.remove(ex.mesh));
+            enemies = []; projectiles = []; explosions = [];
+        }
+
+        function resetToMenu() {
+            gameState = 'MENU';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+            
+            if (model) {
+                model.position.copy(centerPosition);
+                model.rotation.set(0, 0, 0); // Идеальный сброс вращения в меню
+            }
+
+            camera.position.set(0, 7.5, 9.0);
+            controls.target.set(0, -0.5, 0);
+            controls.enabled = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ОСНОВНОЙ ЦИКЛ ОБНОВЛЕНИЯ ИГРЫ
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (mixer) mixer.update(delta);
+
+            if (gameState === 'PLAYING') {
+                // Камера жестко зафиксирована на центре арены
+                camera.position.set(0, 7.5, 9.0);
+                camera.lookAt(0, -0.5, 0);
+
+                // Спавнер роботов
+                enemySpawnTimer += delta;
+                if (enemySpawnTimer >= spawnInterval) {
+                    spawnEnemy();
+                    enemySpawnTimer = 0;
+                    spawnInterval = Math.max(0.5, spawnInterval - 0.01); // Постепенное усложнение
+                }
+
+                // Логика полета снарядов
+                for (let i = projectiles.length - 1; i >= 0; i--) {
+                    const p = projectiles[i];
+                    p.mesh.position.addScaledVector(p.dir, p.speed * delta);
+
+                    // Проверяем достижение цели снарядом или вылет за пределы карты
+                    const distToTarget = p.mesh.position.distanceTo(p.target);
+                    if (distToTarget < 0.4 || p.mesh.position.length() > 15) {
+                        createExplosionRing(p.mesh.position);
+                        scene.remove(p.mesh);
+                        projectiles.splice(i, 1);
+                    }
+                }
+
+                // Логика взрывных волн (нанесение урона по площади)
+                for (let i = explosions.length - 1; i >= 0; i--) {
+                    const ex = explosions[i];
+                    ex.radius += ex.speed * delta;
+                    ex.mesh.scale.set(ex.radius, ex.radius, 1);
+                    ex.mesh.material.opacity = 1.0 - (ex.radius / ex.maxRadius);
+
+                    // Проверяем коллизии взрыва с роботами
+                    enemies.forEach(enemy => {
+                        if (!enemy.isDead) {
+                            const distToExplosion = enemy.mesh.position.distanceTo(ex.mesh.position);
+                            if (distToExplosion < ex.radius + 0.3 && distToExplosion < ex.maxRadius) {
+                                enemy.isDead = true;
+                                score++;
+                                document.getElementById('score-display').innerText = `СЧЕТ: ${score}`;
+                                enemy.knockback.copy(enemy.mesh.position).sub(ex.mesh.position).normalize().multiplyScalar(12);
+                            }
+                        }
+                    });
+
+                    if (ex.radius >= ex.maxRadius) {
+                        scene.remove(ex.mesh);
+                        explosions.splice(i, 1);
+                    }
+                }
+
+                // Логика движения и анимации набегающих роботов
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+
+                    if (enemy.isDead) {
+                        // Анимация красивого отлета робота при взрыве
+                        enemy.mesh.position.addScaledVector(enemy.knockback, delta);
+                        enemy.mesh.position.y += 4 * delta;
+                        enemy.mesh.scale.subScalar(1.5 * delta);
+
+                        if (enemy.mesh.scale.x <= 0.1) {
+                            scene.remove(enemy.mesh);
+                            enemies.splice(i, 1);
+                        }
+                        continue;
+                    }
+
+                    // Роботы бегут точно к центру острова (к попугаю)
+                    const dirToCenter = new THREE.Vector3().copy(centerPosition).sub(enemy.mesh.position);
+                    dirToCenter.y = 0;
+                    const distance = dirToCenter.length();
+                    dirToCenter.normalize();
+
+                    enemy.mesh.position.addScaledVector(dirToCenter, enemy.speed * delta);
+                    enemy.mesh.lookAt(centerPosition.x, enemy.mesh.position.y, centerPosition.z);
+
+                    // Робот добежал до центра — наносит урон прочности острова
+                    if (distance < 1.0) {
+                        islandHp -= 10;
+                        document.getElementById('hp-bar-fill').style.width = `${islandHp}%`;
+                        
+                        scene.remove(enemy.mesh);
+                        enemies.splice(i, 1);
+
+                        if (islandHp <= 0) {
+                            endGame();
+                        }
+                    }
+                }
+            } else if (gameState === 'MENU') {
+                controls.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
